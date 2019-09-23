@@ -41,33 +41,6 @@ summonerRoutes.route('/delete/:id').delete(function(req, res) {
   });
 });
 
-//route /summoner/update_smurf_score/:name -> used after a record has been place in the db
-//will likely be connected to a button on the FE that 'updates' the smurf score
-summonerRoutes.route('/update_smurf_score/:name').put(function(req, res) {
-  (async () => {
-    let name = req.params.name.replace(/['"]+/g, '');
-    await Summoner.findOne( {name: name}, function(err, summoner) {
-      this.id = summoner._id
-      //use summoner_level, winratio, total_games, avg kda, avg cspm
-      let summoner_level_multiplier = 30/(summoner.summoner_level);
-      let avg_kda = 0;
-      let avg_cspm = 0;
-      let total_games_top_champs = 0;
-      for(i = 0; i < summoner.champ_info.length; i++) {
-        total_games_top_champs += summoner.champ_info[i].games_played;
-      }
-      for(i = 0; i < summoner.champ_info.length; i++) {
-        avg_kda += (summoner.champ_info[i].kda*(summoner.champ_info[i].games_played/total_games_top_champs) * ((summoner.champ_info[i].win_ratio-50)/15));
-        avg_cspm += (summoner.champ_info[i].cspm*(summoner.champ_info[i].games_played/total_games_top_champs) * ((summoner.champ_info[i].win_ratio-50)/15));
-      }
-      this.smurf_score = summoner_level_multiplier*( (25*((avg_kda-2.5)/2.5)) + (25*((avg_cspm-5.0)/5.0)) + (25*((summoner.winratio-50)/15)) + (25*((100 - summoner.total_games)/50)));
-    });
-    Summoner.findByIdAndUpdate({ _id: this.id }, { smurf_score: this.smurf_score }, {new: true}, function(err, summoner){
-      res.json(summoner);
-    });
-  })();
-});
-
 //route /search/:name -> this is used to search for a user and add them to the db if they are not already present
 summonerRoutes.route('/search/:name').post(function(req, res) {
   let name = req.params.name.split(" ");
@@ -94,7 +67,7 @@ summonerRoutes.route('/search/:name').post(function(req, res) {
         let name = $('span.Name').text();
         let smurf_score = null;
         let summoner_level = parseInt($('span.Level.tip').text());
-        let tierRank = $('div.TierRank').text();
+        let tierRank = $('div.TierRank').text().replace(/\s+/g, "");
 
         //overall wr + games played
         let wins = $('span.wins').text().split('W')[0];
@@ -124,13 +97,27 @@ summonerRoutes.route('/search/:name').post(function(req, res) {
       
         summoner_info = { name, smurf_score, summoner_level, tierRank, winratio, total_games, champ_info }
         let summoner = new Summoner(JSON.parse(JSON.stringify(summoner_info, null, 4)));
-        summoner.save()
-                .then(summoner => {
-                  res.status(200).json(summoner);
-                })
-                .catch(err => {
-                  res.status(400).send('adding new summoner failed');
-                });
+        await summoner.save();
+      
+        await Summoner.findOne( {name: name}, function(err, summoner) {
+          this.id = summoner._id
+          //use summoner_level, winratio, total_games, avg kda, avg cspm
+          let summoner_level_multiplier = 30/(summoner.summoner_level);
+          let avg_kda = 0;
+          let avg_cspm = 0;
+          let total_games_top_champs = 0;
+          for(i = 0; i < summoner.champ_info.length; i++) {
+            total_games_top_champs += summoner.champ_info[i].games_played;
+          }
+          for(i = 0; i < summoner.champ_info.length; i++) {
+            avg_kda += (summoner.champ_info[i].kda*(summoner.champ_info[i].games_played/total_games_top_champs) * ((summoner.champ_info[i].win_ratio-50)/15));
+            avg_cspm += (summoner.champ_info[i].cspm*(summoner.champ_info[i].games_played/total_games_top_champs) * ((summoner.champ_info[i].win_ratio-50)/15));
+          }
+          this.smurf_score = summoner_level_multiplier*( (25*((avg_kda-2.5)/2.5)) + (25*((avg_cspm-5.0)/5.0)) + (25*((summoner.winratio-50)/15)) + (25*((100 - summoner.total_games)/50)));
+        });
+        Summoner.findByIdAndUpdate({ _id: this.id }, { smurf_score: this.smurf_score }, {new: true}, function(err, summoner){
+          res.json(summoner);
+        });
       })();
     } else {
       res.json(summoner);
