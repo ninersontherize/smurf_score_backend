@@ -1,6 +1,12 @@
 # smurf_score_backend
 Welcome to the Smurf Score Back-end repository
 
+## Smurf Account
+![Smurf](/smurf.png)
+
+## Normal Account
+![Normal Account](/not-smurf.png)
+
 ## Instructions
 
 In order to get your front end up and running you need to have node.js 
