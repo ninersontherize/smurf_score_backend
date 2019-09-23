@@ -52,7 +52,6 @@ summonerRoutes.route('/search/:name').post(function(req, res) {
       }
       const BASE_URL = 'https://na.op.gg/summoner/userName=';
       const USERNAME = search_name.replace(/['"]+/g, '');
-      console.log(`${BASE_URL}${USERNAME}`);
 
       (async () => {
       
