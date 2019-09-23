@@ -29,7 +29,7 @@ at this input type the following
 It should give you a confirmation message, and you are almost done!
 open up a new tab and run the following in our active directory
 
-### > `nodemon server`
+### `nodemon server`
 
 When you run this you should see a message that says
 "MongoDB database connection established successfully"
