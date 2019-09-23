@@ -126,7 +126,7 @@ summonerRoutes.route('/search/:name').post(function(req, res) {
         let summoner = new Summoner(JSON.parse(JSON.stringify(summoner_info, null, 4)));
         summoner.save()
                 .then(summoner => {
-                  res.status(200).json({'summoner': 'summoner added successfully'});
+                  res.status(200).json(summoner);
                 })
                 .catch(err => {
                   res.status(400).send('adding new summoner failed');
