@@ -67,13 +67,13 @@ summonerRoutes.route('/search/:name').post(function(req, res) {
         let name = $('span.Name').text();
         let smurf_score = null;
         let summoner_level = parseInt($('span.Level.tip').text());
-        let tierRank = $('div.TierRank').text().replace(/\s+/g, "");
+        let tier_rank = $('div.TierRank').text().replace(/\s+/g, "");
 
         //overall wr + games played
         let wins = $('span.wins').text().split('W')[0];
         let losses = $('span.losses').text().split('L')[0];
         let total_games = parseInt(wins) + parseInt(losses);
-        let winratio = parseInt($('span.winratio').text().substr(10, 2));
+        let overall_win_ratio = parseInt($('span.winratio').text().substr(10, 2));
       
         //champion specific info - to be defined by interating through champion box
         let champ_info = [];
@@ -94,30 +94,47 @@ summonerRoutes.route('/search/:name').post(function(req, res) {
             }
           }
         });
+
+
+        /*update smurf_score now that we have a record
+        use summoner_level, overall_win_ratio, total_games, avg kda, avg cspm
+        future iterations -> adjustable avgs to weight around -> change by division*/
+        let avg_kda = 0;
+        let avg_cspm = 0;
+        let total_games_top_champs = 0;
+
+        /*set summoner_level_multiplier -> idea here is that the farther away from 30
+        they are the smaller this number becomes, thus the higher level players
+        will tend towards zero as it is unlikely they are smurfs*/
+        let summoner_level_multiplier = 30/(summoner_level);
+        
+        //get total games played on top champs
+        for(i = 0; i < champ_info.length; i++) {
+          total_games_top_champs += champ_info[i].games_played;
+        }
+
+        /*use top champs performance to weight each category - if someone is a one trick
+        their performance on their top champ should matter more than one they only played one
+        ranked game on*/
+        for(i = 0; i < champ_info.length; i++) {
+          avg_kda += (champ_info[i].kda*(champ_info[i].games_played/total_games_top_champs) * ((champ_info[i].win_ratio-50)/10));
+          avg_cspm += (champ_info[i].cspm*(champ_info[i].games_played/total_games_top_champs) * ((champ_info[i].win_ratio-50)/10));
+        }
+
+        /*early version of smurf_score, weighted around the 'averages' this should give a score above 20 if the person is suspicious
+        with most normal players going negative - especially players that played a lot of games this season or those with high levels*/
+        smurf_score = summoner_level_multiplier*( (25*((avg_kda-2.5)/2.5)) + (25*((avg_cspm-5.0)/5.0)) + (25*((overall_win_ratio-50)/10)) + (25*((100 - total_games)/50)));
+        
       
-        summoner_info = { name, smurf_score, summoner_level, tierRank, winratio, total_games, champ_info }
+        summoner_info = { name, smurf_score, summoner_level, tier_rank, overall_win_ratio, total_games, champ_info }
         let summoner = new Summoner(JSON.parse(JSON.stringify(summoner_info, null, 4)));
-        await summoner.save();
-      
-        await Summoner.findOne( {name: name}, function(err, summoner) {
-          this.id = summoner._id
-          //use summoner_level, winratio, total_games, avg kda, avg cspm
-          let summoner_level_multiplier = 30/(summoner.summoner_level);
-          let avg_kda = 0;
-          let avg_cspm = 0;
-          let total_games_top_champs = 0;
-          for(i = 0; i < summoner.champ_info.length; i++) {
-            total_games_top_champs += summoner.champ_info[i].games_played;
-          }
-          for(i = 0; i < summoner.champ_info.length; i++) {
-            avg_kda += (summoner.champ_info[i].kda*(summoner.champ_info[i].games_played/total_games_top_champs) * ((summoner.champ_info[i].win_ratio-50)/15));
-            avg_cspm += (summoner.champ_info[i].cspm*(summoner.champ_info[i].games_played/total_games_top_champs) * ((summoner.champ_info[i].win_ratio-50)/15));
-          }
-          this.smurf_score = summoner_level_multiplier*( (25*((avg_kda-2.5)/2.5)) + (25*((avg_cspm-5.0)/5.0)) + (25*((summoner.winratio-50)/15)) + (25*((100 - summoner.total_games)/50)));
-        });
-        Summoner.findByIdAndUpdate({ _id: this.id }, { smurf_score: this.smurf_score }, {new: true}, function(err, summoner){
-          res.json(summoner);
-        });
+        summoner.save()
+                .then(summoner => {
+                  res.status(200).json(summoner);
+                })
+                .catch(err => {
+                  res.status(400).send('adding new summoner failed')
+                });
       })();
     } else {
       res.json(summoner);

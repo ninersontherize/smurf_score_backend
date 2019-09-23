@@ -11,10 +11,10 @@ let Summoner = new Schema({
   summoner_level: {
     type: Number
   },
-  tierRank: {
+  tier_rank: {
     type: String
   },
-  winratio: {
+  overall_win_ratio: {
     type: Number
   },
   total_games: {
